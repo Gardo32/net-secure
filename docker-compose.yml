@@ -1,10 +1,6 @@
-version: "3.8"
-
 services:
   frontend:
-    build:
-      context: ./Net-Secure
-      dockerfile: Dockerfile
+    image: ghcr.io/gardo32/frontend:latest
     ports:
       - "3000:3000"
     depends_on:
@@ -17,9 +13,7 @@ services:
       - app-network
 
   backend:
-    build:
-      context: ./cipherx-backend
-      dockerfile: Dockerfile
+    image: ghcr.io/gardo32/backend:latest
     ports:
       - "3001:3001"
     environment:
