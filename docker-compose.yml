@@ -2,22 +2,31 @@ version: "3.8"
 
 services:
   frontend:
-    image: ghcr.io/gardo32/frontend:latest
+    build:
+      context: ./Net-Secure
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     depends_on:
       - backend
     environment:
-      - REACT_APP_BACKEND_URL=http://backend:5000 # Use the service name 'backend' for internal communication
+      # Base API URL for client-side requests (browser)
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      # The frontend code will detect other environments automatically
     networks:
       - app-network
 
   backend:
-    image: ghcr.io/gardo32/backend:latest
+    build:
+      context: ./cipherx-backend
+      dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      - "3001:3001"
     environment:
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000 # Allow frontend origin for CORS
+      - PORT=3001
+      # Explicit origins to allow (beyond the auto-detected ones)
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
+      # Add any other environment-specific variables here
     networks:
       - app-network
 

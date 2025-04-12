@@ -4,16 +4,87 @@ const cors = require('cors');
 const { exec } = require('child_process'); 
 const app = express();
 
-app.use(cors()); 
+/**
+ * Cloud-native CORS configuration that works in any environment
+ * This implementation supports:
+ * - Local development
+ * - Cloud platforms (AWS, GCP, Azure)
+ * - Containerized deployments (Docker, Kubernetes)
+ * - Serverless environments
+ * - PaaS platforms (Heroku, Vercel, Netlify)
+ */
+const corsOptions = {
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Get allowed origins from environment variables or use defaults
+    const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS ? 
+      process.env.CORS_ALLOWED_ORIGINS.split(',') : 
+      ['http://localhost:3000', 'http://frontend:3000'];
+    
+    // Add common development domains to allowed origins
+    const trustedDomains = [
+      // GitHub Codespaces domains
+      '.app.github.dev',
+      // Local development
+      'localhost',
+      '127.0.0.1',
+      // Cloud development platforms
+      '.vercel.app',
+      '.netlify.app',
+      '.ngrok.io'
+    ];
+    
+    // Check if the request origin matches any trusted domain pattern
+    const isTrustedDomain = trustedDomains.some(domain => origin.includes(domain));
+    
+    // Allow if it's a trusted domain or explicitly allowed
+    if (isTrustedDomain || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked for origin: ${origin}`);
+      callback(new Error('CORS not allowed for this origin'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-start-time', 'x-requested-with'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
+console.log(`CORS configured with cloud-native settings. Explicit allowed origins: ${process.env.CORS_ALLOWED_ORIGINS || 'Default development origins'}`);
+
+// Add proper OPTIONS handling for preflight requests
+app.options('*', cors(corsOptions));
+
+// Fix missing/incorrect endpoint paths in requests
+app.use((req, res, next) => {
+  // Detect and fix common URL path issues
+  if (req.path.includes('/ip/')) {
+    // Fix issue where 'ip' gets attached to hostname without slash
+    req.url = req.url.replace('/ip/', '/ip');
+  } else if (req.path.endsWith('/ip')) {
+    // Ensure trailing slash is properly handled
+    req.url = '/ip';
+  }
+  
+  console.log(`Processing request: ${req.method} ${req.path} from origin: ${req.headers.origin || 'Unknown'}`);
+  next();
+});
 
 const largeBuffer = Buffer.alloc(5 * 1024 * 1024, 'a'); // 5MB
 
+// Basic health check endpoint
 app.get('/', (req, res) =>{
     res.send('200 OK')
 })
-app.get('/ip', (req, res)=>{
+
+// IP endpoint - properly separated from hostname
+app.get('/ip', (req, res) => {
     const IP = req.ip;
-    res.json({ ip: IP})
+    res.json({ ip: IP })
 })
 
 app.get('/ping', (req, res) => {
@@ -105,7 +176,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
     res.json({ uploadTime });
 });
 
-const port = 3001;
+const port = process.env.PORT || 3001;
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
